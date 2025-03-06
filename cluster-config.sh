@@ -1,4 +1,4 @@
-gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
+gcloud config set project ${secrets.GCP_PROJECT_ID}
 export PROJECT_ID=$(gcloud config get project)
 export REGION=us-east4
 gcloud container clusters create llm-deploy --location ${REGION} \

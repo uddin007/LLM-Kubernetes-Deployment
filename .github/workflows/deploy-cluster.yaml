@@ -19,7 +19,12 @@ jobs:
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           service_account_key: ${{ secrets.GCP_SA_KEY }}
-          export_default_credentials: true
+          export_default_credentials: true  # Ensure credentials are exported
+
+      - name: Authenticate gcloud
+        run: |
+          gcloud auth activate-service-account --key-file=${{ secrets.GCP_SA_KEY }}
+          gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
 
       - name: Run cluster-config.sh
         env:

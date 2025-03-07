@@ -1,34 +1,48 @@
-name: Deploy GKE Cluster
+name: Deploy GKE Cluster (Manual)
 
 on:
-  workflow_dispatch:  # Manually trigger the workflow
-  push:
-    branches:
-      - main  # Trigger on push to the main branch
+  workflow_dispatch:
 
 jobs:
-  deploy-cluster:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Set up Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
           service_account_key: ${{ secrets.GCP_SA_KEY }}
-          export_default_credentials: true  # Ensure credentials are exported
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-      - name: Authenticate gcloud
+      - name: Authenticate to Google Cloud
         run: |
-          gcloud auth activate-service-account --key-file=${{ secrets.GCP_SA_KEY }}
+          echo "${{ secrets.GCP_SA_KEY }}" > gcloud-sa.json
+          gcloud auth activate-service-account --key-file=gcloud-sa.json
           gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
+          gcloud auth configure-docker us-central1-docker.pkg.dev
+          rm gcloud-sa.json
 
-      - name: Run cluster-config.sh
-        env:
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}  # Pass the secret as an environment variable
+      - name: Create GKE Cluster
         run: |
-          chmod +x ./cluster-config.sh
-          ./cluster-config.sh
+          #!/bin/bash
+
+          # Set the GCP project
+          gcloud config set project ${GCP_PROJECT_ID}
+
+          # Export the project ID and region
+          export PROJECT_ID=$(gcloud config get project)
+          export REGION=us-east4
+
+          # Create the GKE cluster
+          gcloud container clusters create llm-deploy --location ${REGION} \
+          --workload-pool ${PROJECT_ID}.svc.id.goog --enable-image-streaming --node-locations=$REGION-a \
+          --machine-type n2d-standard-4 --num-nodes 1 \
+          --release-channel=rapid
+
+          # Get cluster credentials
+          gcloud container clusters get-credentials llm-deploy --region=${REGION}
+        env:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
